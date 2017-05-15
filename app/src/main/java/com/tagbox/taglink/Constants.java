@@ -95,7 +95,7 @@ public final class Constants {
 
     public static final String GATEWAY_MONITOR_PACKAGE_NAME = "com.tagbox.androidgatewaymonitor";
 
-    public static final long SCAN_WINDOW = 300000;
+    public static final long SCAN_WINDOW = 120000;
 
     public static final String DOOR_STATUS_SERVICE_UUID = "CDAB";
 

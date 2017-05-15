@@ -12,6 +12,7 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.app.Fragment;
 import android.support.v4.content.LocalBroadcastManager;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -98,6 +99,7 @@ public class QTagFragment extends Fragment {
 
     private void updateListView(View view) {
         //TextView listHeaderTextView = (TextView)view.findViewById(R.id.tv_heading);
+        Log.d("D/QTagFragment", "Updating Fragment View");
 
         bleList = new ArrayList<>();
         qTagHistoryDatas = new ArrayList<>();
@@ -111,13 +113,20 @@ public class QTagFragment extends Fragment {
 
         boolean result = Utils.isServiceRunning(getActivity(), TagLinkService.class);
         if(result) {
+            Log.d("D/QTagFragment", "Taglink Service is Running");
+
             if (!isServiceBound) {
+                Log.d("D/QTagFragment", "Attempting to bind to Taglink Service");
                 bindTagLinkService();
             }
 
             if(mBoundService != null) {
                 bleList = mBoundService.getQTagDataList();
+                Log.d("D/QTagFragment", "Binded to Taglink Service");
             }
+
+            Log.d("D/QTagFragment", "Retrieving QTag List Size -> "
+                    + Integer.toString(bleList.size()));
 
             headerView.setText("Tags identified during current Sync operation");
             lstTagDisplay.addHeaderView(mHeader, null, false);
@@ -128,6 +137,8 @@ public class QTagFragment extends Fragment {
             tv.setText("No Tags scanned");
             lstTagDisplay.setEmptyView(tv);
         } else {
+            Log.d("D/QTagFragment", "Taglink Service is not running");
+
             headerView.setText("Tag History (Tags identified during previous Sync operations)");
             lstTagDisplay.addHeaderView(mHeader, null, false);
 

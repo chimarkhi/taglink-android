@@ -405,7 +405,7 @@ public class TagLinkService extends Service {
                 if(mService != null) {
                     if(packetReceived) {
                         packetReceived = false;
-                        mTimerHandler.postDelayed(this, 60000);
+                        mTimerHandler.postDelayed(this, 20000);
                     } else {
                         closeUartService(true);
                     }
