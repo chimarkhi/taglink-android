@@ -43,9 +43,6 @@ public class CloudInterface {
     private static String TAG = "CloudInterface";
     private static String AZUREDATAURL;
 
-    private static String
-            POST_C2D_RESPONSE_URL; //= "http://192.168.2.10:8080/restservice/v1/d2c/cmdresponse";
-
     private String gatewayId, sasKey;
 
     private DatabaseHandler mDb;
@@ -192,7 +189,7 @@ public class CloudInterface {
         requestQueue.add(req);
 
         try {
-            JSONObject response = future.get(30, TimeUnit.SECONDS); // this will block
+            JSONObject response = future.get(15, TimeUnit.SECONDS); // this will block
         } catch (Exception ex) {
             PostMessageData data = new PostMessageData(bodyData.toString());
             backupUnsentMessageDb(data);
@@ -217,7 +214,7 @@ public class CloudInterface {
             return false;
         }
 
-        checkPrevMessages();
+        //checkPrevMessages();
 
         for(JSONObject j : messages){
             if(!postSynchronousToAzure(j)) {
@@ -248,7 +245,15 @@ public class CloudInterface {
         mDb.close();
     }
 
-    private List<PostMessageData> getAllPostMessages() {
+    public long getUnsentPostMessageCount() {
+        mDb = new DatabaseHandler(mContext);
+        long count = mDb.getPostMessageCount();
+        mDb.close();
+
+        return count;
+    }
+
+    public List<PostMessageData> getAllPostMessages() {
         mDb = new DatabaseHandler(mContext);
         List<PostMessageData> prevPostMessages = mDb.getAllPostMessageData();
         mDb.close();

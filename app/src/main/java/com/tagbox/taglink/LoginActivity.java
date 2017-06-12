@@ -4,37 +4,32 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.annotation.TargetApi;
 import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.support.annotation.NonNull;
-import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
-import android.app.LoaderManager.LoaderCallbacks;
 
-import android.content.CursorLoader;
-import android.content.Loader;
-import android.database.Cursor;
-import android.net.Uri;
 import android.os.AsyncTask;
 
 import android.os.Build;
 import android.os.Bundle;
-import android.provider.ContactsContract;
 import android.text.TextUtils;
-import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.inputmethod.EditorInfo;
-import android.widget.ArrayAdapter;
-import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 
-import java.util.ArrayList;
-import java.util.List;
+import org.json.JSONObject;
 
-import static android.Manifest.permission.READ_CONTACTS;
+import java.io.IOException;
+import java.util.Date;
+
+import okhttp3.MediaType;
+import okhttp3.MultipartBody;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
 /**
  * A login screen that offers login via email/password.
@@ -193,7 +188,7 @@ public class LoginActivity extends AppCompatActivity {
      * Represents an asynchronous login/registration task used to authenticate
      * the user.
      */
-    public class UserLoginTask extends AsyncTask<Void, Void, Boolean> {
+    public class UserLoginTask extends AsyncTask<Void, Void, Integer> {
 
         private final String mUserName;
         private final String mPassword;
@@ -204,10 +199,8 @@ public class LoginActivity extends AppCompatActivity {
         }
 
         @Override
-        protected Boolean doInBackground(Void... params) {
-            // TODO: attempt authentication against a network service.
-
-            try {
+        protected Integer doInBackground(Void... params) {
+            /*try {
                 // Simulate network access.
                 Thread.sleep(2000);
             } catch (InterruptedException e) {
@@ -221,18 +214,67 @@ public class LoginActivity extends AppCompatActivity {
                 return true;
             } else {
                 return false;
+            }*/
+
+            int result = 1;
+
+            Date now = new Date();
+
+            String loginTime = Utils.getISO8601StringForDate(now);
+
+            ApplicationSettings appSettings = new ApplicationSettings(LoginActivity.this);
+            String mLocation = appSettings.getAppSettingString(ApplicationSettings.LAST_KNOWN_LOCATION);
+
+            appSettings.setAppSetting(ApplicationSettings.TAG_WHITELIST, "");
+            appSettings.setAppSetting(ApplicationSettings.STRING_LOGIN_USERNAME, mUserName);
+
+            JSONObject requestData = new JSONObject();
+            try {
+                requestData.put("user", mUserName);
+                requestData.put("pwd", mPassword);
+                requestData.put("timestamp", loginTime);
+                requestData.put("loc", mLocation);
+            } catch (Exception e) {}
+
+            OkHttpClient client = OkHttpSingleton.getInstance().getOkHttpClient();
+
+            MediaType type = MediaType.parse("text/plain");
+
+            RequestBody requestBody = RequestBody.create(type, requestData.toString());
+
+            Request request = new Request.Builder()
+                    .url(ApplicationSettings.LOGIN_URL)
+                    .method("POST", requestBody)
+                    .post(requestBody)
+                    .build();
+
+            try (Response response = client.newCall(request).execute()){
+                if (response.code() == 200) {
+                    JSONObject res = new JSONObject(response.body().string());
+                    String isValid = res.get("isValid").toString();
+                    if(isValid.equalsIgnoreCase("true")) {
+                        result = 0;
+                        String whitelist = res.getJSONObject("qtags").toString();
+                        appSettings.setAppSetting(ApplicationSettings.TAG_WHITELIST, whitelist);
+                    } else {
+                        result = 2;
+                    }
+                } else {
+                    result = 1;
+                }
+            } catch (Exception ex) {
+                result = 1;
             }
 
-            // TODO: register the new account here.
-            //return true;
+            return result;
         }
 
         @Override
-        protected void onPostExecute(final Boolean success) {
+        protected void onPostExecute(final Integer success) {
             mAuthTask = null;
             showProgress(false);
 
-            if (success) {
+            if (success == 0) {
                 long currUnixTime = System.currentTimeMillis() / 1000;
                 ApplicationSettings appSettings = new ApplicationSettings(LoginActivity.this);
                 appSettings.setAppSetting(ApplicationSettings.LONG_LAST_LOGIN, currUnixTime);
@@ -240,8 +282,11 @@ public class LoginActivity extends AppCompatActivity {
                 Intent myIntent = new Intent(LoginActivity.this, MainActivity.class);
                 LoginActivity.this.startActivity(myIntent);
                 finish();
-            } else {
-                mPasswordView.setError(getString(R.string.error_incorrect_password));
+            } else if(success == 2) {
+                mPasswordView.setError(getString(R.string.error_incorrect_login));
+                mPasswordView.requestFocus();
+            } else if(success == 1) {
+                mPasswordView.setError(getString(R.string.error_fail_login));
                 mPasswordView.requestFocus();
             }
         }

@@ -198,6 +198,13 @@ public class DatabaseHandler {
         mDb.insert(TABLE_POST_MESSAGE_DATA, null, values);
     }
 
+    public long getPostMessageCount() {
+
+        long cnt  = DatabaseUtils.queryNumEntries(mDb, TABLE_POST_MESSAGE_DATA);
+
+        return cnt;
+    }
+
     // Getting All Contacts
     public List<PostMessageData> getAllPostMessageData() {
         //Map<String, SensorData> senseDataList = new HashMap<String, SensorData>();

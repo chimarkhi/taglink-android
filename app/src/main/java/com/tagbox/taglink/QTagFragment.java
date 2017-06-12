@@ -19,6 +19,9 @@ import android.view.ViewGroup;
 import android.widget.ListView;
 import android.widget.TextView;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -64,7 +67,9 @@ public class QTagFragment extends Fragment {
         this.mHeader = header;
         this.mView = view;
 
-        updateListView(view);
+        createListView(view);
+
+        //updateListView(view);
 
         /*if(savedInstanceState == null) {
             bleList = new ArrayList<>();
@@ -87,7 +92,8 @@ public class QTagFragment extends Fragment {
         super.onResume();
         registerForLocalBroadcast();
 
-        updateListView(this.mView);
+        //updateListView(this.mView);
+        createListView(this.mView);
     }
 
     @Override
@@ -97,11 +103,55 @@ public class QTagFragment extends Fragment {
         super.onPause();
     }
 
+    private void createListView(View view) {
+        bleList = new ArrayList<>();
+
+        ApplicationSettings applicationSettings = new ApplicationSettings(this.getActivity().getApplicationContext());
+        String whitelist = applicationSettings.getAppSettingString(ApplicationSettings.TAG_WHITELIST);
+
+        if(whitelist != null && whitelist != "") {
+            try {
+                JSONObject list = new JSONObject(whitelist);
+
+                for(int i = 0; i < list.names().length(); i++) {
+                    //JSONObject object = list.getJSONObject(i);
+                    String macId = list.names().getString(i);
+                    String clientId = list.getString(list.names().getString(i));
+
+                    QTagData qTagData = new QTagData(macId);
+                    qTagData.setFriendlyName(clientId);
+                    bleList.add(qTagData);
+
+                    //Iterate through the elements of the array i.
+                    //Get thier value.
+                    //Get the value for the first element and the value for the last element.
+                }
+            } catch (Exception ex) {}
+        }
+
+        lstTagDisplay = (ListView) view.findViewById(R.id.listView_Tag);
+
+        TextView headerView = (TextView)mHeader.findViewById(R.id.tv_heading);
+
+        lstTagDisplay.removeHeaderView(mHeader);
+
+        String login_id = applicationSettings.getAppSettingString(ApplicationSettings.STRING_LOGIN_USERNAME);
+
+        headerView.setText("Tags associated with Login ID - " + login_id);
+        lstTagDisplay.addHeaderView(mHeader, null, false);
+
+        TextView tv = (TextView)view.findViewById(R.id.tv_empty_element);
+        tv.setText("No Tags to be scanned for Login ID - " + login_id);
+        lstTagDisplay.setEmptyView(tv);
+
+        updateListView(view);
+    }
+
     private void updateListView(View view) {
         //TextView listHeaderTextView = (TextView)view.findViewById(R.id.tv_heading);
         Log.d("D/QTagFragment", "Updating Fragment View");
 
-        bleList = new ArrayList<>();
+        /*bleList = new ArrayList<>();
         qTagHistoryDatas = new ArrayList<>();
         lstTagDisplay = (ListView) view.findViewById(R.id.listView_Tag);
 
@@ -157,7 +207,50 @@ public class QTagFragment extends Fragment {
             TextView tv = (TextView)view.findViewById(R.id.tv_empty_element);
             tv.setText("No Tags scanned previously");
             lstTagDisplay.setEmptyView(tv);
+        }*/
+
+
+        lstTagDisplay = (ListView) view.findViewById(R.id.listView_Tag);
+
+        boolean result = Utils.isServiceRunning(getActivity(), TagLinkService.class);
+        if(result) {
+            Log.d("D/QTagFragment", "Taglink Service is Running");
+
+            if (!isServiceBound) {
+                Log.d("D/QTagFragment", "Attempting to bind to Taglink Service");
+                bindTagLinkService();
+            }
+
+            ArrayList<QTagData> currList;
+
+            if(mBoundService != null) {
+                currList = mBoundService.getQTagDataList();
+                updateBleList(currList);
+
+                Log.d("D/QTagFragment", "Binded to Taglink Service");
+            }
+
+            Log.d("D/QTagFragment", "Retrieving QTag List Size -> "
+                    + Integer.toString(bleList.size()));
+        } else {
+            Log.d("D/QTagFragment", "Taglink Service is not running");
+
+            DatabaseHandler db = new DatabaseHandler(getActivity().getApplicationContext());
+            List<TagLogData> tagHistory = db.getAllTagLogData();
+            db.close();
+            for(TagLogData t : tagHistory) {
+                int index = getIndex(bleList, t.nodeId);
+                if(index != -1) {
+                    QTagData d = new QTagData(t.nodeId);
+                    d.setFriendlyName(t.friendlyName);
+                    String dateTime = Utils.getDateTimeFromUnixTimestamp(t.uploadTimestamp);
+                    d.setStatus("Tag last synced at " + dateTime);
+                }
+            }
         }
+
+        adapterListview = new QTagDataAdapter(getActivity(), bleList);
+        lstTagDisplay.setAdapter(adapterListview);
 
         //lstTagDisplay.addHeaderView(listHeaderTextView);
     }
@@ -210,9 +303,10 @@ public class QTagFragment extends Fragment {
         isServiceBound = true;
     }
 
-    private void updateListViewBleDevices(List<QTagData> newList){
-        bleList.clear();
-        bleList.addAll(newList);
+    private void updateListViewBleDevices(ArrayList<QTagData> newList){
+        //bleList.clear();
+        //bleList.addAll(newList);
+        updateBleList(newList);
         if(adapterListview == null) {
             updateListView(getView());
         } else {
@@ -241,7 +335,7 @@ public class QTagFragment extends Fragment {
                 if(bleDevices != null){
                     updateListViewBleDevices(bleDevices);
                 }
-            } else if(QTAG_ALERT.equals(intent.getAction())) {
+            } /*else if(QTAG_ALERT.equals(intent.getAction())) {
                 String address = intent.getStringExtra(QTAG_ADDR);
                 int breach = intent.getIntExtra(QTAG_ADV_EXTRA, -1);
                 if(breach != -1) {
@@ -254,9 +348,18 @@ public class QTagFragment extends Fragment {
                 }
             } else if(SERVICE_STOP_MSG.equals(intent.getAction())){
                 clearList();
-            }
+            }*/
         }
     };
+
+    public void updateBleList(ArrayList<QTagData> currList) {
+        for(QTagData data : currList) {
+            int index = getIndex(bleList, data.getTagAddress());
+            if(index != -1) {
+                bleList.set(index, data);
+            }
+        }
+    }
 
     public void clearList() {
         bleList.clear();

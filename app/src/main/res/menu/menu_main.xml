@@ -5,6 +5,11 @@
 
     <item
         android:id="@+id/sync"
-        app:showAsAction="ifRoom"
+        app:showAsAction="never"
         android:title="Sync"/>
+
+    <item
+        android:id="@+id/retry"
+        app:showAsAction="never"
+        android:title="Retry Upload"/>
 </menu>

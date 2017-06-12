@@ -8,42 +8,26 @@ import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanFilter;
 import android.bluetooth.le.ScanResult;
 import android.bluetooth.le.ScanSettings;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.ServiceConnection;
 import android.os.Handler;
 import android.os.HandlerThread;
-import android.os.IBinder;
 import android.os.Looper;
 import android.support.v4.content.LocalBroadcastManager;
-import android.util.Log;
 
 import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Longs;
 import com.google.common.primitives.Shorts;
 
-import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
-import static android.content.ContentValues.TAG;
-import static com.tagbox.taglink.Constants.BLE_UUID_HEALTH_THERMOMETER_SERVICE;
 import static com.tagbox.taglink.Constants.COMPANY_IDENTIFIER;
-import static com.tagbox.taglink.Constants.HUMIDITY_SERVICE_UUID;
 import static com.tagbox.taglink.Constants.QTAG_ADV;
 import static com.tagbox.taglink.Constants.QTAG_ADV_EXTRA;
-import static com.tagbox.taglink.Constants.QTAG_ADV_LIST;
-import static com.tagbox.taglink.Constants.QTAG_ADV_LIST_EXTRA;
 import static com.tagbox.taglink.Constants.QTAG_UUID;
-import static com.tagbox.taglink.Constants.RECKEY_SERVICE_UUID;
-import static com.tagbox.taglink.Constants.UNIXTIME_SERVICE_UUID;
 
 /**
  * Created by Suhas on 10/31/2016.
@@ -60,16 +44,11 @@ public class BtDeviceScan {
     private Looper mLooper;
     HandlerThread mHandlerThread;
 
-    //boolean startStopScan = false;
-
     private BluetoothLeScanner mLEScanner;
     private ScanSettings settings;
     private List<ScanFilter> filters;
-    //private ArrayList<BleDevice> bleList;
-    //private ArrayList<QTagData> qTagList;
 
     private List<String> whitelistAM;
-    private Map<String, Integer> doorActivityTrack = new HashMap<>();
 
     public BtDeviceScan(Context context) {
         this.mContext = context;
@@ -88,10 +67,6 @@ public class BtDeviceScan {
 
         /*bleList = new ArrayList<>();
         qTagList = new ArrayList<>();*/
-
-        if (!mBluetoothAdapter.isEnabled()) {
-            mBluetoothAdapter.enable();
-        }
 
         startBluetoothDiscovery();
     }
@@ -156,18 +131,6 @@ public class BtDeviceScan {
         });
     }
 
-    /*void notifyBleChange(){
-        Intent intent = new Intent("BluetoothScanChange");
-        intent.putParcelableArrayListExtra("BleDevices", bleList);
-        LocalBroadcastManager.getInstance(this.mContext).sendBroadcast(intent);
-    }*/
-/*
-    void notifyQtagChange() {
-        Intent intent = new Intent(QTAG_ADV_LIST);
-        intent.putParcelableArrayListExtra(QTAG_ADV_LIST_EXTRA, qTagList);
-        LocalBroadcastManager.getInstance(this.mContext).sendBroadcast(intent);
-    }*/
-
     void notifyQTag(QTagData tag) {
         Intent intent = new Intent(QTAG_ADV);
         intent.putExtra(QTAG_ADV_EXTRA, tag);
@@ -230,8 +193,6 @@ public class BtDeviceScan {
 
         @Override
         public void onScanFailed(int errorCode) {
-
-            //LOG.warn("Scan Failed, Error Code: {}", errorCode);
             //Log.e("Scan Failed", "Error Code: " + errorCode);
         }
     };
@@ -243,26 +204,6 @@ public class BtDeviceScan {
         int rssi = result.getRssi();
         String bleAddress = btDevice.getAddress().toString();
         String friendlyName = result.getScanRecord().getDeviceName();
-
-        /*if(!containsAddress(bleList, bleAddress)){
-
-            BleDevice currBleDev;
-            if(friendlyName == null){
-                currBleDev = new BleDevice(bleAddress,btDevice.getBondState(), rssi);
-            }
-            else {
-                currBleDev = new BleDevice(bleAddress, friendlyName, btDevice.getBondState(), rssi);
-            }
-            bleList.add(currBleDev);
-        }
-        else{
-            int index = getIndex(bleList, bleAddress);
-            if(index >= 0) {
-                bleList.get(index).setRssi(rssi);
-            }
-        }
-
-        notifyBleChange();*/
 
         byte[] advertisementPacket = result.getScanRecord().getBytes();
 
@@ -279,20 +220,8 @@ public class BtDeviceScan {
                 tagData.setTagAddress(bleAddress);
                 tagData.setRssi(rssi);
                 tagData.setUnixTimestamp(currTime);
-                /*if(!containsQAddress(qTagList, bleAddress)){
-                    qTagList.add(tagData);
-                }
-                else{
-                    int index = getQIndex(qTagList, bleAddress);
-                    if(index >= 0) {
-                        qTagList.remove(index);
-                        qTagList.add(tagData);
-                    }
-                }*/
 
                 notifyQTag(tagData);
-
-                //notifyQtagChange();
             }
         }
     }
@@ -389,44 +318,4 @@ public class BtDeviceScan {
         qTagData = new QTagData(ticks, temp, humidity, recordKey);
         return qTagData;
     }
-
-    /*public int getIndex(List<BleDevice> c, String address) {
-        for (int i = 0; i < c.size(); i++) {
-            BleDevice data = c.get(i);
-            String devAddress = data.getTagAddress();
-            if (devAddress.equals(address)) {
-                return i;
-            }
-        }
-        return -1;
-    }
-
-    public boolean containsAddress(Collection<BleDevice> c, String bleAddress) {
-        for(BleDevice o : c) {
-            if(o != null && o.getTagAddress().equals(bleAddress)) {
-                return true;
-            }
-        }
-        return false;
-    }*/
-
-    /*public int getQIndex(List<QTagData> c, String address) {
-        for (int i = 0; i < c.size(); i++) {
-            QTagData data = c.get(i);
-            String devAddress = data.getTagAddress();
-            if (devAddress.equals(address)) {
-                return i;
-            }
-        }
-        return -1;
-    }
-
-    public boolean containsQAddress(Collection<QTagData> c, String bleAddress) {
-        for(QTagData o : c) {
-            if(o != null && o.getTagAddress().equals(bleAddress)) {
-                return true;
-            }
-        }
-        return false;
-    }*/
 }

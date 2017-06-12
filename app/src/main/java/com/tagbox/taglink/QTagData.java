@@ -16,6 +16,16 @@ public class QTagData implements Parcelable {
     private Integer breach;
     private String status;
 
+    public QTagData(String address) {
+        this.address = address;
+        this.friendlyName = "";
+        this.rssi = 0;
+        //this.timestamp = 0;
+        this.temp = 0f;
+        this.humidity = 0f;
+        this.ticks = 0;
+    }
+
     public QTagData(String address, int rssi) {
         this.address = address;
         this.friendlyName = "";

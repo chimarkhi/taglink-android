@@ -13,6 +13,7 @@ import android.util.SparseArray;
 
 import java.io.DataOutputStream;
 import java.nio.ByteBuffer;
+import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -153,27 +154,6 @@ public class Utils {
         }
     }
 
-    /*public boolean containsName(Collection<BleDevice> c, String name) {
-        for(BleDevice o : c) {
-            if(o != null && o.getFriendlyName().contains(name)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    public int getIndex(List<BleDevice> c, String name) {
-        for (int i = 0; i < c.size(); i++)
-        {
-            BleDevice data = c.get(i);
-            String devFriendlyName = data.getFriendlyName();
-            if (devFriendlyName.contains(name)) {
-                return i;
-            }
-        }
-        return -1;
-    }*/
-
     public static boolean isServiceRunning(Context mContext, Class<?> serviceClass) {
         ActivityManager manager = (ActivityManager)mContext.getSystemService(Context.ACTIVITY_SERVICE);
         for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
@@ -219,5 +199,36 @@ public class Utils {
         String utcTime = sdf.format(df);
 
         return utcTime;
+    }
+
+    public static String getISO8601StringForDate(Date date) {
+        DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
+        dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
+        return dateFormat.format(date);
+    }
+
+    public static boolean hasPermission(Context context, String permission) {
+
+        int res = context.checkCallingOrSelfPermission(permission);
+
+        return res == PackageManager.PERMISSION_GRANTED;
+
+    }
+
+    /** Determines if the context calling has the required permissions
+     * @param context - the IPC context
+     * @param permissions - The permissions to check
+     * @return true if the IPC has the granted permission
+     */
+    public static boolean hasPermissions(Context context, String... permissions) {
+
+        boolean hasAllPermissions = true;
+
+        for(String permission : permissions) {
+            //return false instead of assigning, but with this you can log all permission values
+            if (! hasPermission(context, permission)) {hasAllPermissions = false; }
+        }
+
+        return hasAllPermissions;
     }
 }

@@ -10,7 +10,8 @@
     <string name="error_invalid_email">This email address is invalid</string>
     <string name="error_invalid_username">This user name is invalid</string>
     <string name="error_invalid_password">This password is too short</string>
-    <string name="error_incorrect_password">This password is incorrect</string>
+    <string name="error_incorrect_login">Login credentials is incorrect</string>
+    <string name="error_fail_login">Unable to login. Please try after some time.</string>
     <string name="error_field_required">This field is required</string>
     <string name="permission_rationale">"Contacts permissions are needed for providing email
         completions."

@@ -75,11 +75,11 @@ public class QTagDataAdapter extends ArrayAdapter<QTagData> {
 
         txtUploadSync.setText(uploadSyncText);
 
-        if(qData.getBreach() != null) {
+        /*if(qData.getBreach() != null) {
             if (qData.getBreach() == 1) {
                 row.setBackgroundColor(Color.RED);
             }
-        }
+        }*/
 
         return row;
     }

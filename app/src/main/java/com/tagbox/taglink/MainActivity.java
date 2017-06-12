@@ -6,53 +6,49 @@ import android.app.FragmentTransaction;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothManager;
 import android.content.BroadcastReceiver;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
-import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.View;
-import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.util.ArrayList;
+import java.util.List;
+
 import static com.tagbox.taglink.Constants.SERVICE_STOP_MSG;
+import static com.tagbox.taglink.Constants.SESSION_TIME_SECONDS;
 
 public class MainActivity extends AppCompatActivity {
 
-    private static final int INITIAL_REQUEST=1337;
-    private static final int BLUETOOTH_REQUEST=INITIAL_REQUEST+1;
-    private static final int LOCATION_REQUEST=INITIAL_REQUEST+2;
-    private static final int STORAGE_REQUEST=INITIAL_REQUEST+3;
-
     private TextView tvBluetoothStatus;
     private TextView tvNetworkStatus;
-    private TextView tvLastScan;
-
-    //private Button btBluetoothEnable;
-    //private Button btStart;
+    private TextView tvNotification;
 
     private LinearLayout llBluetooth;
     private LinearLayout llNetwork;
 
     private MenuItem syncItem;
+    private MenuItem retryItem;
 
     private BluetoothAdapter mBluetoothAdapter;
 
-    private static long SESSION_TIME_SECONDS = 60000;
+    private CloudInterface ci;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -66,43 +62,44 @@ public class MainActivity extends AppCompatActivity {
             finish();
         }
 
+        tvBluetoothStatus = (TextView) findViewById(R.id.tv_bt_status);
+        tvNetworkStatus = (TextView) findViewById(R.id.tv_net_status);
+        tvNotification = (TextView) findViewById(R.id.tv_notification);
+
+        llBluetooth = (LinearLayout) findViewById(R.id.ll_bluetooth);
+        llNetwork = (LinearLayout) findViewById(R.id.ll_network);
+
+        setPhoneSettings();
+
         ApplicationSettings appSettings = new ApplicationSettings(this);
 
         long currUnixTime = System.currentTimeMillis() / 1000;
-
         long lastLogin = appSettings.getAppSetting(ApplicationSettings.LONG_LAST_LOGIN);
-        if((currUnixTime - lastLogin) > SESSION_TIME_SECONDS){
-            Intent myIntent = new Intent(MainActivity.this, LoginActivity.class);
-            MainActivity.this.startActivity(myIntent);
+
+        boolean result = Utils.isServiceRunning(MainActivity.this, TagLinkService.class);
+
+        //if service is running and session time not expired then dont go to login activity
+        if(!result && ((currUnixTime - lastLogin) > SESSION_TIME_SECONDS )) {
+            Intent intent = new Intent(MainActivity.this, LoginActivity.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            MainActivity.this.startActivity(intent);
             finish();
-        }
-
-        tvBluetoothStatus = (TextView)findViewById(R.id.tv_bt_status);
-        tvNetworkStatus = (TextView)findViewById(R.id.tv_net_status);
-
-        tvLastScan = (TextView)findViewById(R.id.tv_last_scan);
-        long lastScan = appSettings.getAppSetting(ApplicationSettings.LONG_LAST_SCAN);
-        /*if(lastScan <= 0) {
-            tvLastScan.setText("Click 'Sync' to extract TagLink data");
         } else {
-            String dateTime = Utils.getDateTimeFromUnixTimestamp(lastScan);
-            tvLastScan.setText("Last sync at " + dateTime);
-        }*/
+            appSettings.setAppSetting(ApplicationSettings.LONG_LAST_LOGIN, currUnixTime); //keep updating session time
 
-        llBluetooth = (LinearLayout)findViewById(R.id.ll_bluetooth);
-        llNetwork = (LinearLayout)findViewById(R.id.ll_network);
+            /*long lastScan = appSettings.getAppSetting(ApplicationSettings.LONG_LAST_SCAN);
+            if(lastScan <= 0) {
+                tvLastScan.setText("Click 'Sync' to extract TagLink data");
+            } else {
+                String dateTime = Utils.getDateTimeFromUnixTimestamp(lastScan);
+                tvLastScan.setText("Last sync at " + dateTime);
+            }*/
 
-        //btBluetoothEnable = (Button)findViewById(R.id.bt_enable);
-        //btStart = (Button)findViewById(R.id.bt_start);
+            Toolbar toolbar = (Toolbar) findViewById(R.id.tool_bar);
+            setSupportActionBar(toolbar);
 
-        Toolbar toolbar = (Toolbar) findViewById(R.id.tool_bar);
-        setSupportActionBar(toolbar);
-
-        requestAppPermissions();
-
-        //checkServiceRunning();
-
-        setPhoneSettings();
+            ci = new CloudInterface(this);
+        }
     }
 
     @Override
@@ -135,7 +132,10 @@ public class MainActivity extends AppCompatActivity {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu_main, menu);
         syncItem = menu.getItem(0);
-        checkServiceRunning();
+        retryItem = menu.getItem(1);
+
+        setMenuItems();
+        //checkServiceRunning();
         return true;
     }
 
@@ -144,6 +144,10 @@ public class MainActivity extends AppCompatActivity {
         switch(item.getItemId()) {
             case R.id.sync:
                 onClickSync();
+                break;
+            case R.id.retry:
+                onClickRetry();
+                break;
         }
         return(super.onOptionsItemSelected(item));
     }
@@ -157,6 +161,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setPhoneSettings() {
+        checkBluetoothStatus();
+
+        checkNetworkStatus();
+    }
+
+    private void checkBluetoothStatus(){
         final BluetoothManager bluetoothManager =
                 (BluetoothManager) this.getSystemService(Context.BLUETOOTH_SERVICE);
         mBluetoothAdapter = bluetoothManager.getAdapter();
@@ -175,54 +185,6 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(MainActivity.this, "Require bluetooth connection for uploading Tag Data",
                     Toast.LENGTH_LONG).show();
         }
-
-        checkNetworkStatus();
-    }
-
-    private void requestAppPermissions() {
-        //Get Permission for app to use location services
-        if ((ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED) ||
-                (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
-                        != PackageManager.PERMISSION_GRANTED )){
-
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this,
-                    android.Manifest.permission.ACCESS_FINE_LOCATION)) {
-                // Display UI and wait for user interaction
-            } else {
-                ActivityCompat.requestPermissions(
-                        this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION},
-                        LOCATION_REQUEST);
-            }
-        }
-
-        if ((ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH)
-                != PackageManager.PERMISSION_GRANTED) ||
-                (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_ADMIN)
-                        != PackageManager.PERMISSION_GRANTED ))   {
-            // Check Permissions Now
-
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this,
-                    android.Manifest.permission.BLUETOOTH_ADMIN)) {
-                // Display UI and wait for user interaction
-            } else {
-                ActivityCompat.requestPermissions(
-                        this, new String[]{Manifest.permission.BLUETOOTH, Manifest.permission.BLUETOOTH_ADMIN},
-                        BLUETOOTH_REQUEST);
-            }
-        }
-
-        if ((ActivityCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                != PackageManager.PERMISSION_GRANTED))   {
-            // Check Permissions Now
-
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this,
-                    Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
-                // Display UI and wait for user interaction
-            } else {
-                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, STORAGE_REQUEST);
-            }
-        }
     }
 
     private final BroadcastReceiver mBtReceiver = new BroadcastReceiver() {
@@ -234,8 +196,8 @@ public class MainActivity extends AppCompatActivity {
 
             // It means the user has changed his bluetooth state.
             if (action.equals(BluetoothAdapter.ACTION_STATE_CHANGED)) {
-/*
-                if (mBluetoothAdapter.getState() == BluetoothAdapter.STATE_TURNING_OFF) {
+
+                /*if (mBluetoothAdapter.getState() == BluetoothAdapter.STATE_TURNING_OFF) {
                     tvBluetoothStatus.setText("");
                     Utils.sendLocalBroadcast(mContext, PERIPHERAL_STATUS, PERIPHERAL_BT_STATUS, "Turning Off");
                 }*/
@@ -293,21 +255,42 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    public void checkServiceRunning() {
+    public void setMenuItems() {
+        setRetryItemOff();
+
+        boolean hasRequiredPermissions = Utils.hasPermissions(this, new String[] {
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+        });
+
         boolean result = Utils.isServiceRunning(MainActivity.this, TagLinkService.class);
-        if(result) {
+
+        if(result || !hasRequiredPermissions) {
             //btStart.setEnabled(false);
-            setActionButtonDisable();
+            setSyncItemDisable();
+
+            if(!hasRequiredPermissions) {
+                tvNotification.setText("Application requires location permission to function. Enable permission and restart the application");
+            }
         } else {
             //btStart.setEnabled(true);
-            setActionButtonOn();
+            setSyncItemOn();
+
+            CloudInterface ci = new CloudInterface(this);
+            long count = ci.getUnsentPostMessageCount();
+
+            if(count > 0) {
+                setRetryItemOn();
+                tvNotification.setText("Data is pending to be uploaded to cloud. Click 'Retry Upload' option in the menu to complete the process");
+            }
         }
     }
 
     public void onClickSync() {
 
         //btStart.setEnabled(false);
-        setActionButtonDisable();
+
+        setSyncItemDisable();
 
         boolean result = Utils.isServiceRunning(MainActivity.this, TagLinkService.class);
         if(!result) {
@@ -342,54 +325,105 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    public void onClickRetry(){
+        DataUploadTask task = new DataUploadTask();
+        task.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+    }
+
     private void setBluetoothStatusOff() {
         llBluetooth.setBackgroundColor(Color.RED);
         //btBluetoothEnable.setVisibility(View.VISIBLE);
         tvBluetoothStatus.setText("Off");
-        //btStart.setEnabled(false);
-        //setActionButtonOff();
     }
 
     private void setBluetoothStatusOn() {
         llBluetooth.setBackgroundColor(Color.GREEN);
         //btBluetoothEnable.setVisibility(View.INVISIBLE);
         tvBluetoothStatus.setText("On");
-        //btStart.setEnabled(true);
-        //setActionButtonOn();
     }
 
     private void setNetworkOff() {
         llNetwork.setBackgroundColor(Color.RED);
         tvNetworkStatus.setText("Down");
-        //btStart.setEnabled(false);
-        //setActionButtonOff();
     }
 
     private void setNetworkOn() {
         llNetwork.setBackgroundColor(Color.GREEN);
         tvNetworkStatus.setText("Up");
-        //btStart.setEnabled(true);
-        //setActionButtonOn();
     }
 
-    private void setActionButtonOn() {
+    private void setSyncItemOn() {
         if(syncItem != null) {
             syncItem.setEnabled(true);
             syncItem.setTitle("Sync");
         }
     }
 
-    private void setActionButtonOff(){
+    private void setSyncItemDisable(){
         if(syncItem != null) {
             syncItem.setEnabled(false);
             syncItem.setTitle("Sync");
         }
+
+        if(retryItem != null) {
+            retryItem.setVisible(false);
+        }
     }
 
-    private void setActionButtonDisable() {
+    /*private void setSyncItemDisable() {
         if(syncItem != null) {
             syncItem.setEnabled(false);
             syncItem.setTitle("Syncing");
+        }
+    }*/
+
+    private void setRetryItemOn() {
+        if(retryItem != null) {
+            retryItem.setVisible(true);
+            retryItem.setEnabled(true);
+        }
+    }
+
+    private void setRetryItemOff(){
+        if(retryItem != null) {
+            retryItem.setVisible(false);
+        }
+    }
+
+    private class DataUploadTask extends AsyncTask<Void,Void,Boolean> {
+        @Override
+        protected Boolean doInBackground(Void... params) {
+
+            setSyncItemDisable();       //prevent user from clicking on sync item when retrying data upload
+
+            Boolean result;
+
+            List<PostMessageData> messages = ci.getAllPostMessages();
+
+            List<JSONObject> data = new ArrayList<>();
+
+            if(messages != null) {
+                for (PostMessageData message : messages) {
+                    try {
+                        JSONObject jsonObject = new JSONObject(message.getPostMessage());
+                        data.add(jsonObject);
+                    } catch (JSONException j) {}
+                }
+            }
+            result = ci.postSynchronousToCloud(data);
+
+            setSyncItemOn();
+
+            return result;
+        }
+
+        @Override
+        protected void onPostExecute(final Boolean success) {
+            if(success) {
+                tvNotification.setText("Failed to upload data");
+            } else {
+                tvNotification.setText("Successfully uploaded data");
+            }
         }
     }
 }
