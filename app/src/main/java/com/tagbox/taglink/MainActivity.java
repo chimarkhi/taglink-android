@@ -69,6 +69,8 @@ public class MainActivity extends AppCompatActivity {
         llBluetooth = (LinearLayout) findViewById(R.id.ll_bluetooth);
         llNetwork = (LinearLayout) findViewById(R.id.ll_network);
 
+        this.setTitle(ApplicationSettings.APP_VERSION);
+
         setPhoneSettings();
 
         ApplicationSettings appSettings = new ApplicationSettings(this);
@@ -86,14 +88,6 @@ public class MainActivity extends AppCompatActivity {
             finish();
         } else {
             appSettings.setAppSetting(ApplicationSettings.LONG_LAST_LOGIN, currUnixTime); //keep updating session time
-
-            /*long lastScan = appSettings.getAppSetting(ApplicationSettings.LONG_LAST_SCAN);
-            if(lastScan <= 0) {
-                tvLastScan.setText("Click 'Sync' to extract TagLink data");
-            } else {
-                String dateTime = Utils.getDateTimeFromUnixTimestamp(lastScan);
-                tvLastScan.setText("Last sync at " + dateTime);
-            }*/
 
             Toolbar toolbar = (Toolbar) findViewById(R.id.tool_bar);
             setSupportActionBar(toolbar);
@@ -132,6 +126,7 @@ public class MainActivity extends AppCompatActivity {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu_main, menu);
         syncItem = menu.getItem(0);
+        syncItem.setTitle("Sync");
         retryItem = menu.getItem(1);
 
         setMenuItems();
@@ -326,6 +321,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void onClickRetry(){
+        setSyncItemDisable();       //prevent user from clicking on sync item when retrying data upload
+        tvNotification.setText("Attempting to upload data. Please wait ...");
         DataUploadTask task = new DataUploadTask();
         task.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
@@ -355,14 +352,14 @@ public class MainActivity extends AppCompatActivity {
     private void setSyncItemOn() {
         if(syncItem != null) {
             syncItem.setEnabled(true);
-            syncItem.setTitle("Sync");
+            //syncItem.setTitle("Sync");
         }
     }
 
     private void setSyncItemDisable(){
         if(syncItem != null) {
             syncItem.setEnabled(false);
-            syncItem.setTitle("Sync");
+            //syncItem.setTitle("Sync");
         }
 
         if(retryItem != null) {
@@ -394,8 +391,6 @@ public class MainActivity extends AppCompatActivity {
         @Override
         protected Boolean doInBackground(Void... params) {
 
-            setSyncItemDisable();       //prevent user from clicking on sync item when retrying data upload
-
             Boolean result;
 
             List<PostMessageData> messages = ci.getAllPostMessages();
@@ -412,17 +407,17 @@ public class MainActivity extends AppCompatActivity {
             }
             result = ci.postSynchronousToCloud(data);
 
-            setSyncItemOn();
-
             return result;
         }
 
         @Override
         protected void onPostExecute(final Boolean success) {
+            setSyncItemOn();
+
             if(success) {
-                tvNotification.setText("Failed to upload data");
-            } else {
                 tvNotification.setText("Successfully uploaded data");
+            } else {
+                tvNotification.setText("Failed to upload data");
             }
         }
     }

@@ -42,7 +42,7 @@ public final class Constants {
 
     public static final long CONNECT_TAG_INTERVAL_SECONDS = 900;
     public static final long UART_DATA_TIMEOUT_MILLISECONDS = 20000;
-    public static final long SCAN_WINDOW = 300000;
+    public static final long SCAN_WINDOW = 1800000;
 
     public static long SESSION_TIME_SECONDS = 1800; //30 minutes
 
@@ -51,5 +51,6 @@ public final class Constants {
     public static final String QTAG_UUID = "04AB";
     public static final String COMPANY_IDENTIFIER = "8B12";
 
-    public static final String QTAG_DATA_END = "FFFF";
+    public static final String QTAG_DATA_END = "ffffffffffffffff";
+    public static final String QTAG_EMPTY = "0000000000000000";
 }

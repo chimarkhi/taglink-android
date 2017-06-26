@@ -3,7 +3,6 @@ package com.tagbox.taglink;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.Service;
-import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -11,7 +10,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
-import android.nfc.Tag;
 import android.os.Binder;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -21,19 +19,16 @@ import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
 
 import com.google.common.primitives.Bytes;
-import com.google.common.primitives.Ints;
+import com.google.common.primitives.Longs;
 import com.google.common.primitives.Shorts;
 
 import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
-import static android.content.ContentValues.TAG;
-import static com.google.common.primitives.Ints.toByteArray;
 import static com.tagbox.taglink.Constants.CONNECT_TAG_INTERVAL_SECONDS;
 import static com.tagbox.taglink.Constants.NOTIFICATION_UPDATE_WINDOW;
 import static com.tagbox.taglink.Constants.QTAG_ADDR;
@@ -43,6 +38,7 @@ import static com.tagbox.taglink.Constants.QTAG_ADV_LIST;
 import static com.tagbox.taglink.Constants.QTAG_ADV_LIST_EXTRA;
 import static com.tagbox.taglink.Constants.QTAG_ALERT;
 import static com.tagbox.taglink.Constants.QTAG_DATA_END;
+import static com.tagbox.taglink.Constants.QTAG_EMPTY;
 import static com.tagbox.taglink.Constants.SCAN_WINDOW;
 import static com.tagbox.taglink.Constants.SERVICE_STOP_MSG;
 import static com.tagbox.taglink.Constants.UART_DATA_TIMEOUT_MILLISECONDS;
@@ -114,14 +110,12 @@ public class TagLinkService extends Service {
     @Override
     public void onCreate() {
 
-        mHandlerthread = new HandlerThread("ServiceStartArguments");
+        mHandlerthread = new HandlerThread("ServiceThreads");
         mHandlerthread.start();
 
-        // Get the HandlerThread's Looper and use it for our Handler
-        mServiceLooper = mHandlerthread.getLooper();
-        mServiceHandler = new Handler(mServiceLooper);
+        mServiceHandler = new Handler(mHandlerthread.getLooper());
 
-        mTimerHandler = new Handler();
+        mTimerHandler = new Handler(mHandlerthread.getLooper());
 
         ci = new CloudInterface(TagLinkService.this);
         mDbHandler = new DatabaseHandler(TagLinkService.this);
@@ -132,8 +126,6 @@ public class TagLinkService extends Service {
 
         stopTagLinkService();
         registerForLocalBroadcast();
-
-        //checkBackupDataForUpload();
 
         registerCustomNotification();
 
@@ -227,7 +219,7 @@ public class TagLinkService extends Service {
         }
         currTagLinkProcess.recentTimestamp = null;
         currTagLinkProcess.recentTick = null;
-        currTagLinkProcess.lastRecordedCounter = 0x2223;
+        currTagLinkProcess.lastRecordedCounter = 0x0000;
         currTagLinkProcess.breach = 0;
     }
 
@@ -273,16 +265,6 @@ public class TagLinkService extends Service {
         }, NOTIFICATION_UPDATE_WINDOW);
     }
 
-    /*void checkBackupDataForUpload(){
-        mServiceHandler.post(new Runnable() {
-            @Override
-            public void run() {
-                ci.checkPrevMessages();
-                //mServiceHandler.postDelayed(this, 60000);
-            }
-        });
-    }*/
-
     void notifyServiceStop(){
         Intent intent = new Intent(SERVICE_STOP_MSG);
         LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
@@ -301,8 +283,8 @@ public class TagLinkService extends Service {
                 int index;
 
                 if(!qTagDataListContains(deviceAddress)){
+                    qTagData.setState(ApplicationTaglink.Tag_State.ADVERTISING);
                     qTagDataList.add(qTagData);
-                    index = 0;
                 }
                 else {
                     index = getQTagDataListIndex(deviceAddress);
@@ -410,7 +392,6 @@ public class TagLinkService extends Service {
         }
 
         public void onServiceDisconnected(ComponentName classname) {
-            ////     mService.disconnect(mDevice);
             mService.close();
             mService = null;
         }
@@ -432,7 +413,7 @@ public class TagLinkService extends Service {
             if(result) {
                 updateTagStatus(currTagLinkProcess.tagAddress, "Uploading Data to Cloud completed successfully");
             } else {
-                updateTagStatus(currTagLinkProcess.tagAddress, "Failed to data to cloud");
+                updateTagStatus(currTagLinkProcess.tagAddress, "Failed to upload data to cloud");
             }
         }
     }
@@ -503,7 +484,15 @@ public class TagLinkService extends Service {
                     public void afterDelay() {
                         byte[] value;
                         try {
-                            value = Utils.intToAsciiByteArray((currTagLinkProcess.lastRecordedCounter + 1));
+                            Integer recKey = currTagLinkProcess.lastRecordedCounter;
+                            recKey = (recKey & 0xFFFF);         //we want a 2 byte number. so record key overflows to 0 after 65535
+                            if(recKey == null) {
+                                value = Utils.intToAsciiByteArray(1);   //start from record key 1
+                            } else if(recKey == 0) {
+                                value = Utils.intToAsciiByteArray(1);   //record key 0 is invalid
+                            } else {
+                                value = Utils.intToAsciiByteArray(recKey + 1); //start from previous record key plus one
+                            }
                             mService.writeRXCharacteristic(value);
                             startUartTimerHandler();
                         } catch (Exception ex) {
@@ -526,12 +515,15 @@ public class TagLinkService extends Service {
                 byte[] tempValue;
                 String tempHexString;
                 int recordKey;
-                float temp, humidity;
+                float temp, humidity, battery;
                 long ticks;
                 try {
-                    String text = new String(txValue, "UTF-8");
+                    //tempValue = Arrays.copyOfRange(txValue, 4, 12);
+                    //String text = new String(tempValue, "UTF-8");
 
-                    if(text.contains(QTAG_DATA_END)){
+                    String text = Utils.convertByteArraytoString(txValue);
+
+                    if(text.contains(QTAG_DATA_END)){                   //record key contains end of message notification
                         mTimerHandler.removeCallbacksAndMessages(null);
                         mServiceHandler.post(new Runnable() {
                             @Override
@@ -542,13 +534,16 @@ public class TagLinkService extends Service {
 
                         return;
                     }
+                    if(text.contains(QTAG_EMPTY)) {         //skip this message as it contains 0's
+                        return;
+                    }
 
                     tempValue = Arrays.copyOfRange(txValue, 0, 2);
                     temp = Shorts.fromByteArray(tempValue)/100f;
 
-                    tempValue = Arrays.copyOfRange(txValue, 2, 4);
-                    tempHexString = Utils.convertByteArraytoString(tempValue);
-                    humidity = Integer.parseInt(tempHexString, 16);
+                    humidity = txValue[2];
+
+                    battery = txValue[3];
 
                     tempValue = Arrays.copyOfRange(txValue, 4, 8);
                     tempHexString = Utils.convertByteArraytoString(tempValue);
@@ -568,9 +563,10 @@ public class TagLinkService extends Service {
                     }
 
                     currTagLinkProcess.lastRecordedCounter = recordKey;
+
                     currTagLinkProcess.lastRecordedTimestamp = ts;
 
-                    if(humidity < 0 || humidity > 150) {
+                    if(humidity < 0 || humidity > 127) {
                         //invalid values. so discard and return here itself
                         return;
                     }
@@ -579,6 +575,7 @@ public class TagLinkService extends Service {
                     sd.setDeviceAddress(currTagLinkProcess.tagAddress);
                     sd.setTempData(Float.toString(temp));
                     sd.setHumidityData(Float.toString(humidity));
+                    sd.setBatteryLevel(Float.toString(battery));
                     sd.setTimestamp(Utils.getUtcDatetimeFromUnixTimestamp(ts));
 
                     mDbHandler.addSenseData(sd);
@@ -603,25 +600,31 @@ public class TagLinkService extends Service {
     };
 
     private void closeUartService(boolean updateDataFlag) {
+        mService.close();
+
         if(updateDataFlag) {
             if (currTagLinkProcess.tagAddress != null && currTagLinkProcess.lastRecordedCounter != null
                     && currTagLinkProcess.lastRecordedTimestamp != null) {
-                startPostDataToCloud();
+
                 mDbHandler.addTagLogData(currTagLinkProcess.tagAddress, currTagLinkProcess.tagFriendlyName, currTagLinkProcess.lastRecordedCounter,
                         currTagLinkProcess.lastRecordedTimestamp);
-                if(currTagLinkProcess.breach != null) {
-                    Intent intent = new Intent(QTAG_ALERT);
-                    intent.putExtra(QTAG_ADDR, currTagLinkProcess.tagAddress);
-                    intent.putExtra(QTAG_ADV_EXTRA, currTagLinkProcess.breach);
-                    LocalBroadcastManager.getInstance(TagLinkService.this).sendBroadcast(intent);
+            }
+            Handler uploadDataHandler = new Handler(mServiceHandler.getLooper());
+            uploadDataHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    startPostDataToCloud();
 
                     int index = getQTagDataListIndex(currTagLinkProcess.tagAddress);
-                    qTagDataList.get(index).setBreach(currTagLinkProcess.breach);
+                    qTagDataList.get(index).setState(ApplicationTaglink.Tag_State.SYNCED);
+
+                    updateTagStatus(currTagLinkProcess.tagAddress, "");     //process completed for current tag. remove status of tag
+                    qTagProcessflag = 0;
                 }
-            }
+            });
+        } else {
+            updateTagStatus(currTagLinkProcess.tagAddress, "");     //process completed for current tag. remove status of tag
+            qTagProcessflag = 0;
         }
-        mService.close();
-        updateTagStatus(currTagLinkProcess.tagAddress, "");     //process completed for current tag. remove status of tag
-        qTagProcessflag = 0;
     }
 }

@@ -13,16 +13,13 @@ public class QTagData implements Parcelable {
     private int rssi;
     private long unixTimestamp, recordKey, ticks;
     private Float temp, humidity;
-    private Integer breach;
+    private ApplicationTaglink.Tag_State state;
     private String status;
 
     public QTagData(String address) {
         this.address = address;
         this.friendlyName = "";
         this.rssi = 0;
-        //this.timestamp = 0;
-        this.temp = 0f;
-        this.humidity = 0f;
         this.ticks = 0;
     }
 
@@ -30,9 +27,6 @@ public class QTagData implements Parcelable {
         this.address = address;
         this.friendlyName = "";
         this.rssi = rssi;
-        //this.timestamp = 0;
-        this.temp = 0f;
-        this.humidity = 0f;
         this.ticks = 0;
     }
 
@@ -65,7 +59,7 @@ public class QTagData implements Parcelable {
         humidity = source.readFloat();
         recordKey = source.readLong();
         ticks = source.readLong();
-        breach = source.readInt();
+        state = ApplicationTaglink.Tag_State.values()[source.readInt()];
         status = source.readString();
     }
 
@@ -110,7 +104,7 @@ public class QTagData implements Parcelable {
         if(humidity == null) {
             return null;
         } else {
-            return Float.toString(humidity);
+            return Float.toString(Math.round(humidity));
         }
     }
 
@@ -143,8 +137,8 @@ public class QTagData implements Parcelable {
         return this.unixTimestamp;
     }
 
-    public Integer getBreach() {
-        return this.breach;
+    public ApplicationTaglink.Tag_State getState() {
+        return this.state;
     }
 
     /*********** Set Methods ******************/
@@ -172,8 +166,8 @@ public class QTagData implements Parcelable {
         this.ticks = ticks;
     }
 
-    public void setBreach(int breach) {
-        this.breach = breach;
+    public void setState(ApplicationTaglink.Tag_State state) {
+        this.state = state;
     }
 
     public void setStatus(String status) {
@@ -193,7 +187,7 @@ public class QTagData implements Parcelable {
         dest.writeFloat(humidity);
         dest.writeLong(recordKey);
         dest.writeLong(ticks);
-        dest.writeInt(breach);
+        dest.writeInt(state.ordinal());
         dest.writeString(status);
     }
 

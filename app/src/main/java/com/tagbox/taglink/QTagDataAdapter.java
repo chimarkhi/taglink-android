@@ -46,14 +46,14 @@ public class QTagDataAdapter extends ArrayAdapter<QTagData> {
 
         txtTemp.setLabel("Temperature : ");
         if(qData.getTemperature() == null) {
-            txtTemp.setValue("");
+            txtTemp.setValue("N/A");
         } else {
             txtTemp.setValue(qData.getTemperature());
         }
 
         txtHum.setLabel("Humidity : ");
         if(qData.getHumidity() == null) {
-            txtHum.setValue("");
+            txtHum.setValue("N/A");
         } else {
             txtHum.setValue(qData.getHumidity());
         }
@@ -67,7 +67,7 @@ public class QTagDataAdapter extends ArrayAdapter<QTagData> {
                 uploadSyncText = "No data synced for this tag";
             } else {
                 String dateTime = Utils.getDateTimeFromUnixTimestamp(tagLog.uploadTimestamp);
-                uploadSyncText = "Tag last synced at " + dateTime;
+                uploadSyncText = "Data synced till " + dateTime;
             }
         } else {
             uploadSyncText = qData.getStatus();
@@ -75,6 +75,13 @@ public class QTagDataAdapter extends ArrayAdapter<QTagData> {
 
         txtUploadSync.setText(uploadSyncText);
 
+        if(qData.getState() == ApplicationTaglink.Tag_State.ADVERTISING) {
+            row.setBackgroundColor(Color.parseColor("lightgray"));
+        } else if(qData.getState() == ApplicationTaglink.Tag_State.SYNCED) {
+            row.setBackgroundColor(Color.parseColor("cyan"));
+        } else {
+            row.setBackgroundColor(Color.TRANSPARENT);
+        }
         /*if(qData.getBreach() != null) {
             if (qData.getBreach() == 1) {
                 row.setBackgroundColor(Color.RED);

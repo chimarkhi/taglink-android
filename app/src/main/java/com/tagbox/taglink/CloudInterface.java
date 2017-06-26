@@ -54,9 +54,8 @@ public class CloudInterface {
         gatewayId = ApplicationSettings.GATEWAY_ID;
         sasKey = ApplicationSettings.IOTHUB_SAS_KEY;
 
-        String iotHub = ApplicationSettings.IOTHUB_HOST; //"tbox-iot-hub1.azure-devices.net";
+        String iotHub = ApplicationSettings.IOTHUB_HOST;
         AZUREDATAURL = "https://" + iotHub + "/devices/" + gatewayId + "/messages/events?api-version=2016-02-03";
-        //POST_C2D_RESPONSE_URL = appSettings.getAppSettingString(ApplicationSettings.STRING_C2DRESTSERVICE_HOST);
     }
 
     public void postDataAzure(final JSONObject bodyData){
@@ -80,9 +79,6 @@ public class CloudInterface {
                     public void onErrorResponse(VolleyError error) {
                         PostMessageData data = new PostMessageData(bodyData.toString());
                         backupUnsentMessageDb(data);
-                        String message = "Error Sending Message : " + error.toString();
-                        //Utils.sendLocalBroadcast(mContext, NOTIFICATION_MSG, message);
-                        Log.d(TAG, "Error Sending Message : " + error.toString());
                     }
                 }) {
             public Map<String, String> getHeaders() {
@@ -94,9 +90,6 @@ public class CloudInterface {
                 try {
                     String jsonString = new String(response.data,
                             HttpHeaderParser.parseCharset(response.headers, PROTOCOL_CHARSET));
-
-                    String message = "Succesfully Sent Message to Cloud";
-                    //Utils.sendLocalBroadcast(mContext, NOTIFICATION_MSG, message);
 
                     JSONObject result = null;
 
@@ -185,8 +178,10 @@ public class CloudInterface {
                 MAX_RETRIES,
                 BACKOFF_MULT));
 
-        RequestQueue requestQueue = Volley.newRequestQueue(mContext);
-        requestQueue.add(req);
+        /*RequestQueue requestQueue = Volley.newRequestQueue(mContext);
+        requestQueue.add(req);*/
+
+        VolleySingleton.getInstance(mContext).addToRequestQueue(req);
 
         try {
             JSONObject response = future.get(15, TimeUnit.SECONDS); // this will block
@@ -194,7 +189,6 @@ public class CloudInterface {
             PostMessageData data = new PostMessageData(bodyData.toString());
             backupUnsentMessageDb(data);
             result = false;
-            // exception handling
         }
 
         return result;
@@ -206,15 +200,12 @@ public class CloudInterface {
         result = checkInternetConnection();
 
         if(!result) {
-            Log.d(TAG, "Internet connection not available");
             for(JSONObject message : messages) {
                 PostMessageData data = new PostMessageData(message.toString());
                 backupUnsentMessageDb(data);
             }
             return false;
         }
-
-        //checkPrevMessages();
 
         for(JSONObject j : messages){
             if(!postSynchronousToAzure(j)) {
@@ -232,9 +223,7 @@ public class CloudInterface {
                 try {
                     JSONObject jsonObject = new JSONObject(data.getPostMessage());
                     postDataAzure(jsonObject);
-                } catch (JSONException j) {
-                    Log.d(TAG, "Could not parse malformed JSON: " + data);
-                }
+                } catch (JSONException j) {}
             }
         }
     }
@@ -264,10 +253,10 @@ public class CloudInterface {
         ConnectivityManager cm =
                 (ConnectivityManager)mContext.getSystemService(Context.CONNECTIVITY_SERVICE);
 
-        //this.registerReceiver(mReceiver, new IntentFilter(cm.CONNECTIVITY_ACTION));
         NetworkInfo activeNetwork = cm.getActiveNetworkInfo();
         boolean isConnected = activeNetwork != null &&
                 activeNetwork.isConnectedOrConnecting();
+
         return isConnected;
     }
 

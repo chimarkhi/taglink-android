@@ -121,7 +121,7 @@ public class BtDeviceScan {
                 // Do something after delay
                 if(mBluetoothAdapter.isEnabled()){
                     settings = new ScanSettings.Builder()
-                            .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+                            .setScanMode(ScanSettings.SCAN_MODE_BALANCED)
                             .build();
                     filters = new ArrayList<ScanFilter>();
                     mLEScanner = mBluetoothAdapter.getBluetoothLeScanner();
@@ -267,7 +267,7 @@ public class BtDeviceScan {
     private QTagData parseQTagData(byte[] advertisementPacket) {
         QTagData qTagData = null;
         long ticks = -1, recordKey = -1;
-        Float temp = null, humidity = null;
+        Float temp = null, humidity = null, battery = null;
         int position = 0;
         int longCapacity = Longs.BYTES;
 
@@ -300,10 +300,15 @@ public class BtDeviceScan {
                     Collections.reverse(Bytes.asList(tempValue));
                     temp = Shorts.fromByteArray(tempValue)/100f;
 
-                    tempValue = Arrays.copyOfRange(value, 12, 14);
-                    Collections.reverse(Bytes.asList(tempValue));
+                    /*tempValue = Arrays.copyOfRange(value, 12, 14);
+                    Collections.reverse(Bytes.asList(tempValue));*/
+                    tempValue = new byte[] { value[13] };
                     tempHexString = Utils.convertByteArraytoString(tempValue);
                     humidity = Long.parseLong(tempHexString, 16)/1f;
+
+                    tempValue = new byte[] { value[12] };
+                    tempHexString = Utils.convertByteArraytoString(tempValue);
+                    battery = Long.parseLong(tempHexString, 16)/1f;
                 }
             }
 

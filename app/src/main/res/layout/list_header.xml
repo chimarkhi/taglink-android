@@ -3,7 +3,6 @@
     android:orientation="horizontal"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#cccccc"
     android:id="@+id/layout_list_header"
     android:gravity="center" >
 
@@ -18,5 +17,7 @@
         android:layout_marginRight="10dp"
         android:textStyle="bold"
         android:text=""/>
+
+    <!--android:background="#cccccc"-->
 
 </LinearLayout>

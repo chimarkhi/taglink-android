@@ -1,13 +1,12 @@
 package com.tagbox.taglink;
 
-
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
-import android.graphics.Color;
+import android.graphics.Paint;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.app.Fragment;
@@ -19,22 +18,15 @@ import android.view.ViewGroup;
 import android.widget.ListView;
 import android.widget.TextView;
 
-import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.tagbox.taglink.Constants.BT_SCAN_MSG;
-import static com.tagbox.taglink.Constants.QTAG_ADDR;
-import static com.tagbox.taglink.Constants.QTAG_ADV;
-import static com.tagbox.taglink.Constants.QTAG_ADV_EXTRA;
 import static com.tagbox.taglink.Constants.QTAG_ADV_LIST;
 import static com.tagbox.taglink.Constants.QTAG_ADV_LIST_EXTRA;
 import static com.tagbox.taglink.Constants.QTAG_ALERT;
-import static com.tagbox.taglink.Constants.QTAG_LIST_SAVED;
 import static com.tagbox.taglink.Constants.SERVICE_STOP_MSG;
-
 
 /**
  * A simple {@link Fragment} subclass.
@@ -42,10 +34,8 @@ import static com.tagbox.taglink.Constants.SERVICE_STOP_MSG;
 public class QTagFragment extends Fragment {
 
     private ArrayList<QTagData> bleList;
-    private ArrayList<QTagHistoryData> qTagHistoryDatas;
     private ListView lstTagDisplay;
     private QTagDataAdapter adapterListview;
-    private QTagHistoryDataAdapter historyDataAdapter;
 
     boolean isServiceBound;
     private TagLinkService mBoundService;
@@ -68,14 +58,6 @@ public class QTagFragment extends Fragment {
         this.mView = view;
 
         createListView(view);
-
-        //updateListView(view);
-
-        /*if(savedInstanceState == null) {
-            bleList = new ArrayList<>();
-        } else {
-            bleList = savedInstanceState.getParcelableArrayList(QTAG_LIST_SAVED);
-        }*/
 
         return view;
     }
@@ -121,10 +103,6 @@ public class QTagFragment extends Fragment {
                     QTagData qTagData = new QTagData(macId);
                     qTagData.setFriendlyName(clientId);
                     bleList.add(qTagData);
-
-                    //Iterate through the elements of the array i.
-                    //Get thier value.
-                    //Get the value for the first element and the value for the last element.
                 }
             } catch (Exception ex) {}
         }
@@ -132,7 +110,7 @@ public class QTagFragment extends Fragment {
         lstTagDisplay = (ListView) view.findViewById(R.id.listView_Tag);
 
         TextView headerView = (TextView)mHeader.findViewById(R.id.tv_heading);
-
+        headerView.setPaintFlags(headerView.getPaintFlags() | Paint.UNDERLINE_TEXT_FLAG);
         lstTagDisplay.removeHeaderView(mHeader);
 
         String login_id = applicationSettings.getAppSettingString(ApplicationSettings.STRING_LOGIN_USERNAME);
@@ -148,67 +126,7 @@ public class QTagFragment extends Fragment {
     }
 
     private void updateListView(View view) {
-        //TextView listHeaderTextView = (TextView)view.findViewById(R.id.tv_heading);
         Log.d("D/QTagFragment", "Updating Fragment View");
-
-        /*bleList = new ArrayList<>();
-        qTagHistoryDatas = new ArrayList<>();
-        lstTagDisplay = (ListView) view.findViewById(R.id.listView_Tag);
-
-        TextView headerView = (TextView)mHeader.findViewById(R.id.tv_heading);
-
-        //ViewGroup header = (ViewGroup)inflater.inflate(R.layout.list_header, lstTagDisplay, false);
-
-        lstTagDisplay.removeHeaderView(mHeader);
-
-        boolean result = Utils.isServiceRunning(getActivity(), TagLinkService.class);
-        if(result) {
-            Log.d("D/QTagFragment", "Taglink Service is Running");
-
-            if (!isServiceBound) {
-                Log.d("D/QTagFragment", "Attempting to bind to Taglink Service");
-                bindTagLinkService();
-            }
-
-            if(mBoundService != null) {
-                bleList = mBoundService.getQTagDataList();
-                Log.d("D/QTagFragment", "Binded to Taglink Service");
-            }
-
-            Log.d("D/QTagFragment", "Retrieving QTag List Size -> "
-                    + Integer.toString(bleList.size()));
-
-            headerView.setText("Tags identified during current Sync operation");
-            lstTagDisplay.addHeaderView(mHeader, null, false);
-
-            adapterListview = new QTagDataAdapter(getActivity(), bleList);
-            lstTagDisplay.setAdapter(adapterListview);
-            TextView tv = (TextView)view.findViewById(R.id.tv_empty_element);
-            tv.setText("No Tags scanned");
-            lstTagDisplay.setEmptyView(tv);
-        } else {
-            Log.d("D/QTagFragment", "Taglink Service is not running");
-
-            headerView.setText("Tag History (Tags identified during previous Sync operations)");
-            lstTagDisplay.addHeaderView(mHeader, null, false);
-
-            DatabaseHandler db = new DatabaseHandler(getActivity().getApplicationContext());
-            List<TagLogData> tagHistory = db.getAllTagLogData();
-            db.close();
-            for(TagLogData t : tagHistory) {
-                QTagHistoryData qTagHistoryData = new QTagHistoryData();
-                qTagHistoryData.setFriendlyName(t.friendlyName);
-                qTagHistoryData.setUploadTimestamp(t.uploadTimestamp);
-                qTagHistoryDatas.add(qTagHistoryData);
-            }
-
-            historyDataAdapter = new QTagHistoryDataAdapter(getActivity(), qTagHistoryDatas);
-            lstTagDisplay.setAdapter(historyDataAdapter);
-            TextView tv = (TextView)view.findViewById(R.id.tv_empty_element);
-            tv.setText("No Tags scanned previously");
-            lstTagDisplay.setEmptyView(tv);
-        }*/
-
 
         lstTagDisplay = (ListView) view.findViewById(R.id.listView_Tag);
 
@@ -244,25 +162,14 @@ public class QTagFragment extends Fragment {
                     QTagData d = new QTagData(t.nodeId);
                     d.setFriendlyName(t.friendlyName);
                     String dateTime = Utils.getDateTimeFromUnixTimestamp(t.uploadTimestamp);
-                    d.setStatus("Tag last synced at " + dateTime);
+                    d.setStatus("Data synced till " + dateTime);
                 }
             }
         }
 
         adapterListview = new QTagDataAdapter(getActivity(), bleList);
         lstTagDisplay.setAdapter(adapterListview);
-
-        //lstTagDisplay.addHeaderView(listHeaderTextView);
     }
-
-    /*@Override
-    public void onSaveInstanceState(Bundle savedInstanceState) {
-        super.onSaveInstanceState(savedInstanceState);
-        // Save UI state changes to the savedInstanceState.
-        // This bundle will be passed to onCreate if the process is
-        // killed and restarted.
-        savedInstanceState.putParcelableArrayList(QTAG_LIST_SAVED, bleList);
-    }*/
 
     private ServiceConnection mConnection = new ServiceConnection() {
         public void onServiceConnected(ComponentName className, IBinder service) {
@@ -304,8 +211,6 @@ public class QTagFragment extends Fragment {
     }
 
     private void updateListViewBleDevices(ArrayList<QTagData> newList){
-        //bleList.clear();
-        //bleList.addAll(newList);
         updateBleList(newList);
         if(adapterListview == null) {
             updateListView(getView());
@@ -335,20 +240,7 @@ public class QTagFragment extends Fragment {
                 if(bleDevices != null){
                     updateListViewBleDevices(bleDevices);
                 }
-            } /*else if(QTAG_ALERT.equals(intent.getAction())) {
-                String address = intent.getStringExtra(QTAG_ADDR);
-                int breach = intent.getIntExtra(QTAG_ADV_EXTRA, -1);
-                if(breach != -1) {
-                    int index = getIndex(bleList, address);
-                    if(breach == 1) {
-                        lstTagDisplay.getChildAt(index + 1).setBackgroundColor(Color.RED);
-                    } else {
-                        lstTagDisplay.getChildAt(index + 1).setBackgroundColor(Color.GREEN);
-                    }
-                }
-            } else if(SERVICE_STOP_MSG.equals(intent.getAction())){
-                clearList();
-            }*/
+            }
         }
     };
 

@@ -27,6 +27,11 @@ import static com.tagbox.taglink.ApplicationSettings.EXCEPTION_URL;
  */
 
 public class ApplicationTaglink extends Application {
+
+    public enum Tag_State {
+        UNAVAILABLE, ADVERTISING, SYNCED, BREACHED
+    }
+
     private Thread.UncaughtExceptionHandler defaultUEH;
 
     // handler listener

@@ -8,6 +8,7 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 
 import static com.tagbox.taglink.Constants.KEY_NODE_BATTERY;
@@ -86,6 +87,53 @@ public class DatabaseHandler {
 
         // Inserting Row
         mDb.insert(TABLE_SENSOR_DATA, null, values);
+    }
+
+    public long getSenseDataCount() {
+        long numRows = DatabaseUtils.queryNumEntries(mDb, TABLE_SENSOR_DATA);
+        return numRows;
+    }
+
+    public List<SensorData> getSenseData(long limit) {
+        List<SensorData> senseDataList = new LinkedList<>();        //in this application we want to remove items from list. so ll is better
+
+        String selectQuery = "SELECT  * FROM " + TABLE_SENSOR_DATA
+                + " ORDER BY " + KEY_SENSOR_ID + " LIMIT " + Long.toString(limit);
+
+        String ids = "";
+
+        Cursor cursor = mDb.rawQuery(selectQuery, null);
+        // looping through all rows and adding to list
+        if (cursor.moveToFirst()) {
+            do {
+                SensorData senseData = new SensorData();
+                senseData.setDeviceAddress(cursor.getString(cursor.getColumnIndex(KEY_NODE_ID)));
+                senseData.setTempData(cursor.getString(cursor.getColumnIndex(KEY_NODE_TEMPERATURE)));
+                senseData.setHumidityData(cursor.getString(cursor.getColumnIndex(KEY_NODE_HUMIDITY)));
+                senseData.setTimestamp(cursor.getString(cursor.getColumnIndex(KEY_NODE_TIMESTAMP)));
+                senseData.setBatteryLevel(cursor.getString(cursor.getColumnIndex(KEY_NODE_BATTERY)));
+                //senseData.setRssi(cursor.getString(cursor.getColumnIndex(KEY_NODE_SIGNAL_STRENGTH)));
+                senseDataList.add(senseData);
+
+                if(ids.trim() != "")
+                    ids += ",";
+                ids += Long.toString(cursor.getLong(cursor.getColumnIndex(KEY_POST_MESSAGE_ID)));
+
+            } while (cursor.moveToNext());
+        }
+        cursor.close();
+
+        deleteSenseData(ids);
+
+        return senseDataList;
+    }
+
+    public void deleteSenseData(String ids) {
+
+        String deleteQuery = "DELETE FROM " + TABLE_SENSOR_DATA +
+                " WHERE "+ KEY_SENSOR_ID + " IN (" + ids + ")";
+
+        mDb.execSQL(deleteQuery);
     }
 
     public List<SensorData> getAllSenseData() {

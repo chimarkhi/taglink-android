@@ -52,12 +52,6 @@
             android:name=".NrfUartService"
             android:enabled="true" />
 
-        <activity android:name=".ExceptionActivity">
-            <intent-filter>
-                <action android:name="com.tagbox.taglink.ON_EXCEPTION" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-        </activity>
     </application>
 
 </manifest>

@@ -3,8 +3,6 @@ package com.tagbox.taglink;
 import android.content.Context;
 import android.content.SharedPreferences;
 
-import java.util.StringTokenizer;
-
 /**
  * Created by Suhas on 10/24/2016.
  */
@@ -23,24 +21,27 @@ public class ApplicationSettings {
 
     public static String LAST_KNOWN_EXCEPTION = "last_known_exception";
 
-    //public final static String LOGIN_USERNAME = "user";
-    //public final static String LOGIN_PASSWORD = "123";
-
     public static long DEFAULT_LAST_LOGIN = 0;
     public static long DEFAULT_LAST_SCAN = 0;
 
     public static String DEFAULT_LAST_KNOWN_LOCATION = "";
 
-    public final static String APP_VERSION = "TagLink 0.51";
+    public final static String APP_VERSION = "TagLink 1.0.0";
 
     public final static String GATEWAY_ID =
+            //"biocon_poc_1";
             "dev_biocon_1";
     public final static String IOTHUB_SAS_KEY =
-            "SharedAccessSignature sr=sub-som-hub.azure-devices.net%2Fdevices%2Fdev_biocon_1&sig=MWAA3KGiBXXmlLrHeCHqiOp4O1eK5maGJRtUv6uZfmo%3D&se=1524071801";
+            "SharedAccessSignature sr=sub-som-hub.azure-devices.net%2Fdevices%2Fdev_biocon_1&sig=gWpQDat1wtunTLzoz0cdnrkfoZnZdpoJOIzxyn7jo6Y%3D&se=1529391614";
+            //"SharedAccessSignature sr=tbox-hub-bcn.azure-devices.net%2Fdevices%2Fbiocon_poc_1&sig=Ygykoh4UeNgZIgc42OmDv2INrW1y1XSM%2FRR3tKVwawk%3D&se=1528867659";
+
     public final static String IOTHUB_HOST =
             "sub-som-hub.azure-devices.net";
+            //"tbox-hub-bcn.azure-devices.net";
 
-    private final static String IP_ADDRESS = "52.187.24.249";
+    private final static String IP_ADDRESS =
+            "104.215.248.40";
+            //"52.187.24.249";
 
     public final static String LOGIN_URL =
                     "http://" + IP_ADDRESS + ":8080/restservice/v1/d2c/login";
@@ -102,9 +103,6 @@ public class ApplicationSettings {
         if(!appSettings.contains(ApplicationSettings.STRING_LOGIN_USERNAME)){
             setAppSetting(ApplicationSettings.STRING_LOGIN_USERNAME, "");
         }
-        //if(!appSettings.contains(ApplicationSettings.STRING_LOGIN_PASSWORD)){
-            //setAppSetting(ApplicationSettings.STRING_LOGIN_PASSWORD, LOGIN_PASSWORD);
-        //}
 
         if(!appSettings.contains(ApplicationSettings.LONG_LAST_LOGIN)){
             setAppSetting(ApplicationSettings.LONG_LAST_LOGIN, DEFAULT_LAST_LOGIN);

@@ -15,8 +15,8 @@ android {
         applicationId "com.tagbox.taglink"
         minSdkVersion 21
         targetSdkVersion 24
-        versionCode 1
-        versionName "1.0"
+        versionCode 6
+        versionName "1.0.0"
         setProperty("archivesBaseName", "TagLink-$versionName")
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
@@ -27,6 +27,10 @@ android {
             signingConfig signingConfigs.release
         }
     }
+    /*lintOptions {
+        abortOnError false;
+        disable 'MissingTranslation'
+    }*/
 }
 
 dependencies {

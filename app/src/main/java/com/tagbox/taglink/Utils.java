@@ -69,8 +69,7 @@ public class Utils {
         for(byte b : packet) {
             builder.append(String.format("%02x", b));
         }
-        String answer = builder.toString();
-        return answer;
+        return builder.toString();
     }
 
     public static String intToAscii(int value) {
@@ -212,7 +211,6 @@ public class Utils {
         int res = context.checkCallingOrSelfPermission(permission);
 
         return res == PackageManager.PERMISSION_GRANTED;
-
     }
 
     /** Determines if the context calling has the required permissions
